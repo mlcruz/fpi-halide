@@ -22,17 +22,14 @@ Expr to_grayscale(Buffer<u_int8_t> buf, Var x, Var y)
     return clamp(to_grayscale);
 }
 
-Buffer<uint8_t> histogram(Buffer<u_int8_t> src)
+Func normalized_histogram(Buffer<u_int8_t> src)
 {
-    float alpha = 255.0f / src.width() * src.height();
-    Buffer<uint8_t> result(256, 256, 3);
-
+    float alpha = 255.0f / (src.width() * src.height() / 3);
     Var x, y, c;
     Var h;
 
     Func grayscale;
     Func histogram;
-    Func histogram_out;
 
     // Tons de cinza
     grayscale(x, y, c) = to_grayscale(src, x, y);
@@ -43,17 +40,66 @@ Buffer<uint8_t> histogram(Buffer<u_int8_t> src)
     // Histograma da imagem
     histogram(h) = 0.0f;
     histogram(grayscale(x_y_domain.x, x_y_domain.y, 0)) += 1.0f;
-    histogram(h) = histogram(h) * alpha;
+    histogram(h) = round(histogram(h) * alpha);
+
+    return histogram;
+}
+
+Buffer<uint8_t> histogram_image(Func histogram, Buffer<u_int8_t> src)
+{
+    Buffer<uint8_t> result(256, 256, 3);
+    Func histogram_out;
+
+    Var x, y, c;
+    Var h;
 
     // Imagem do histograma
-    Expr out_expr = result(x, y, c);
-    out_expr = x, y, mux(c, {select(histogram(x) <= y, 0, 255), select(histogram(x) <= y, 0, 255), select(histogram(x) <= y, 0, 255)});
+    Expr out_expr = mux(c,
+                        {select(histogram(x) > y, 0, 255),
+                         select(histogram(x) > y, 0, 255),
+                         select(histogram(x) > y, 0, 255)});
+
     out_expr = cast<uint8_t>(out_expr);
     histogram_out(x, y, c) = out_expr;
 
     histogram_out.realize(result);
     return result;
 }
+
+// Buffer<uint8_t> histogram(Buffer<u_int8_t> src)
+// {
+//     float alpha = 255.0f / src.width() * src.height();
+//     Buffer<uint8_t> result(256, 256, 3);
+
+//     Var x, y, c;
+//     Var h;
+
+//     Func grayscale;
+//     Func histogram;
+//     Func histogram_out;
+
+//     // Tons de cinza
+//     grayscale(x, y, c) = to_grayscale(src, x, y);
+
+//     // reduction domain variando em 2d
+//     auto x_y_domain = RDom(0, src.width(), 0, src.height());
+
+//     // Histograma da imagem
+//     histogram(h) = 0.0f;
+//     histogram(grayscale(x_y_domain.x, x_y_domain.y, 0)) += 1.0f;
+//     histogram(h) = histogram(h) * alpha;
+
+//     // // Imagem do histograma
+//     // Expr out_expr = mux(c,
+//     //                     {select(histogram(x) <= y, 0, 255),
+//     //                      select(histogram(x) <= y, 0, 255),
+//     //                      select(histogram(x) <= y, 0, 255)});
+//     // out_expr = cast<uint8_t>(out_expr);
+//     // histogram_out(x, y, c) = out_expr;
+
+//     // histogram_out.realize(result);
+//     //    return result;
+// }
 
 int main(int argc, char **argv)
 {
@@ -63,14 +109,17 @@ int main(int argc, char **argv)
     // representada como 3 dimensões: x,y,c, onde c varia de 0 até 2, representando cada canal
     // BGR
     Var x, y, c;
-    Func main_pipeline;
-    main_pipeline(x, y, c) = to_grayscale(input, x, y);
-    auto hist = histogram(input);
+    //Func main_pipeline;
+    //main_pipeline(x, y, c) = to_grayscale(input, x, y);
 
+    auto hist = normalized_histogram(input);
+    hist.compute_root();
+    hist.print_loop_nest();
+    auto hist_image = histogram_image(hist, input);
     // Halide::Buffer<uint8_t> output =
     //     main_pipeline.realize(input.width(), input.height(), input.channels());
 
-    Halide::Tools::save_image(hist, "hist.jpeg");
+    Halide::Tools::save_image(hist_image, "hist.jpeg");
     printf("Success!\n");
 
     return 0;
