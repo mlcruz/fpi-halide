@@ -1,32 +1,67 @@
 #include "Halide.h"
-
 // Include some support code for loading pngs.
 #include "halide_image_io.h"
+#include <opencv2/core.hpp>
+#include "opencv2/opencv.hpp"
 
-int main(int argc, char **argv) {
+using namespace Halide;
+using namespace cv;
+using namespace std;
 
-    Halide::Buffer<uint8_t> input = Halide::Tools::load_image("images/Gramado_72k.jpg");
-    Halide::Func brighter;
-    Halide::Var x, y, c;
-    Halide::Expr value = input(x, y, c);
+int main(int argc, char **argv)
+{
+    // Buffer<uint8_t> input = Halide::Tools::load_image("images/Gramado_72k.jpg");
 
-    value = Halide::cast<float>(value);
-    value = value * 1.5f;
-    
-    //clamp
-    value = Halide::min(value, 255.0f);
+    // // representada como 3 dimensões: x,y,c, onde c varia de 0 até 2, representando cada canal
+    // // rgb
+    // Var x, y, c;
 
-    // Cast it back to an 8-bit unsigned integer.
-    value = Halide::cast<uint8_t>(value);
+    // Halide::Buffer<uint8_t> output =
+    //     brighter.realize(input.width(), input.height(), input.channels());
 
-    // Define the function.
-    brighter(x, y, c) = value;
+    // Halide::Tools::save_image(output, "brighter.png");
+    // printf("Success!\n");
+    // Create a VideoCapture object and open the input file
+    // If the input is the web camera, pass 0 instead of the video file name
+    VideoCapture cap(0);
 
-    Halide::Buffer<uint8_t> output =
-        brighter.realize(input.width(), input.height(), input.channels());
+    // Check if camera opened successfully
+    if (!cap.isOpened())
+    {
+        cout << "Error opening video stream or file" << endl;
+        return -1;
+    }
 
-    //Halide::Tools::save_image(output, "brighter.png");
-    printf("Success!\n");
- 
+    while (1)
+    {
+
+        Mat frame;
+        cap >> frame;
+
+        // If the frame is empty, break immediately
+        if (frame.empty())
+            break;
+
+        // Display the resulting frame
+        imshow("Frame", frame);
+
+        // Press  ESC on keyboard to exit
+        char c = (char)waitKey(25);
+        if (c == 27)
+            break;
+    }
+
+    // When everything done, release the video capture object
+    cap.release();
+    // Closes all the frames
+    destroyAllWindows();
     return 0;
+}
+
+Func to_grayscale(Func f)
+{
+    Func gray;
+    Var x, y, c;
+    gray(x, y, c) = f(x, y, mux(c, {c, c, c}));
+    return gray;
 }
