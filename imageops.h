@@ -50,6 +50,7 @@ Func normalized_histogram(Buffer<u_int8_t> src)
     Func hist = histogram(src);
     hist.compute_root();
     normalized(h) = clamp(round(hist(h) * alpha));
+
     return normalized;
 }
 
@@ -125,10 +126,27 @@ Func histogram_equalization(Buffer<u_int8_t> src)
         ((alpha * histogram_fn(h_dom.x)) / 3);
 
     hist_cum.compute_root();
-    hist_cum.trace_stores();
 
     Func histogram_eq("histogram eq");
     histogram_eq(x, y, c) = clamp(hist_cum(src(x, y, c)));
+
+    Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner"), tile_index("tile_index");
+
+    // Processamos parelelamente em blocos de 64x64
+    histogram_eq.tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
+        .fuse(x_outer, y_outer, tile_index)
+        .parallel(tile_index);
+
+    // Separamos cada bloco de 64 em blocos de 4x4
+    // Vetorizando o loop externo tamanho 4
+    // e realizando unroll no loop interno tamanho 4
+    Var x_inner_outer("x_inner_outer"), y_inner_outer("y_inner_outer"), x_vectors("x_vectorts"), y_pairs("y_pairs");
+    histogram_eq
+        .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 4)
+        .vectorize(x_vectors)
+        .unroll(y_pairs);
+
+    histogram_eq.print_loop_nest();
 
     return histogram_eq;
 }
@@ -151,6 +169,5 @@ Func filter_3x3(Buffer<u_int8_t> src)
                 src_int(x - 1, y + 1, c) * k6 + src_int(x, y + 1, c) * k7 + src_int(x + 1, y + 1, c) * k8;
 
     filter_3x3(x, y, c) = clamp(expr / w);
-    filter_3x3.print_loop_nest();
     return filter_3x3;
 }
