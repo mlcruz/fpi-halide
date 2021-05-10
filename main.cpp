@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 
     // representada como 3 dimensões: x,y,c, onde c varia de 0 até 2, representando cada canal
     // BGR
-    Buffer<uint8_t> input = Halide::Tools::load_image("images/Underwater_53k.jpg");
+    Buffer<uint8_t> input = Halide::Tools::load_image("gray.png");
 
     auto output = Buffer<uint8_t>(input.width(), input.height(), 3);
     auto equalized = histogram_equalization(input);
