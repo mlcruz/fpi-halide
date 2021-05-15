@@ -14,13 +14,13 @@ Expr adjust_brightness(Buffer<u_int8_t> buf, Var x, Var y, Var c, u_int8_t val)
     return clamp(buf(x, y, c) + val);
 }
 
-Expr to_grayscale(Buffer<u_int8_t> buf, Var x, Var y)
+Expr to_grayscale(Func buf, Var x, Var y)
 {
     Expr to_grayscale = buf(x, y, 0) * 0.114f + buf(x, y, 1) * 0.587f + buf(x, y, 2) * 0.299f;
     return clamp(to_grayscale);
 }
 
-Func histogram(Buffer<u_int8_t> src)
+Func histogram(Func src)
 {
     Var x("x"), y("y"), c("c");
     Var h("h");
@@ -32,7 +32,7 @@ Func histogram(Buffer<u_int8_t> src)
     grayscale(x, y, c) = to_grayscale(src, x, y);
 
     // reduction domain variando em 2d
-    auto x_y_domain = RDom(0, src.width(), 0, src.height(), "x_y");
+    auto x_y_domain = RDom(0, src.output_buffer().width(), 0, src.output_buffer().height(), "x_y");
 
     // Histograma da imagem
     histogram(h) = 0.0f;
@@ -40,9 +40,9 @@ Func histogram(Buffer<u_int8_t> src)
     return histogram;
 }
 
-Func normalized_histogram(Buffer<u_int8_t> src)
+Func normalized_histogram(Func src)
 {
-    float alpha = static_cast<float>(HISTOGRAM_ROWS) / (src.width() * src.height() / 3);
+    auto alpha = HISTOGRAM_ROWS / (src.output_buffer().width() * src.output_buffer().height() / 3);
     Var x("x"), y("y"), c("c");
     Var h("h");
 
@@ -105,50 +105,32 @@ Buffer<uint8_t> histogram_image(Func histogram, Buffer<u_int8_t> src)
     return result;
 }
 
-Func histogram_equalization(Buffer<u_int8_t> src)
+Func histogram_equalization(Func src)
 {
     Var x("x"), y("y"), c("c");
     Var h("h");
 
-    float alpha = 255.0f / (src.height() * src.width() / 3);
+    auto alpha = 255.0f / (src.output_buffer().height() * src.output_buffer().width() / 3);
 
     Func histogram_fn = histogram(src);
-    histogram_fn.compute_root();
+    // histogram_fn.compute_root();
 
-    Func hist_cum("hist cum");
+    // Func hist_cum("hist cum");
 
-    hist_cum(h) = alpha * histogram_fn(h);
+    // hist_cum(h) = alpha * histogram_fn(h);
 
-    auto h_dom = RDom(1, 255, "h");
+    // auto h_dom = RDom(1, 255, "h");
 
-    hist_cum(h_dom.x) =
-        hist_cum(h_dom.x - 1) +
-        ((alpha * histogram_fn(h_dom.x)) / 3);
+    // hist_cum(h_dom.x) =
+    //     hist_cum(h_dom.x - 1) +
+    //     ((alpha * histogram_fn(h_dom.x)) / 3);
 
-    hist_cum.compute_root();
+    // hist_cum.compute_root();
 
-    Func histogram_eq("histogram eq");
-    histogram_eq(x, y, c) = clamp(hist_cum(src(x, y, c)));
-
-    Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner"), tile_index("tile_index");
-
-    // Processamos parelelamente em blocos de 64x64
-    histogram_eq.tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
-        .fuse(x_outer, y_outer, tile_index)
-        .parallel(tile_index);
-
-    // Separamos cada bloco de 64 em blocos de 4x4
-    // Vetorizando o loop externo tamanho 4
-    // e realizando unroll no loop interno tamanho 4
-    Var x_inner_outer("x_inner_outer"), y_inner_outer("y_inner_outer"), x_vectors("x_vectorts"), y_pairs("y_pairs");
-    histogram_eq
-        .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 4)
-        .vectorize(x_vectors)
-        .unroll(y_pairs);
-
-    histogram_eq.print_loop_nest();
-
-    return histogram_eq;
+    // Func histogram_eq("histogram eq");
+    // histogram_eq(x, y, c) = clamp(hist_cum(src(x, y, c)));
+    // //return src;
+    return histogram_fn;
 }
 
 Func filter_3x3(Buffer<u_int8_t> src)

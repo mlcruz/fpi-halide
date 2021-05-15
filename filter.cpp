@@ -10,6 +10,7 @@ public:
     Input<Buffer<uint8_t>> input{"input", 3};
     Output<Buffer<uint8_t>> output{"output", 3};
     Var x, y, c;
+    Var h;
 
     // We then define a method that constructs and return the Halide
     // pipeline:
@@ -18,20 +19,14 @@ public:
         Func filter_3x3("filter_3x3");
         Func src_int;
 
-        Func clamped = BoundaryConditions::repeat_edge(input);
-        src_int(x, y, c) = cast<int>(clamped(x, y, c));
+        auto gray = to_grayscale(input, x, y);
+        Func histogram("histogram");
+        auto x_y_domain = RDom(0, input.width(), 0, input.height(), "x_y");
 
-        // -1, -1 => 0; 0, -1 => 1; 1, -1 -> 2;
-        int k0 = 1, k1 = 1, k2 = 1, k3 = 1, k4 = 1, k5 = 1, k6 = 1, k7 = 1, k8 = 1;
-        int w = (k0 + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8);
+        output(x, y, c) = gray;
 
-        Expr expr = src_int(x - 1, y - 1, c) * k0 + src_int(x, y - 1, c) * k1 + src_int(x + 1, y - 1, c) * k2 +
-                    src_int(x - 1, y, c) * k3 + src_int(x, y, c) * k4 + src_int(x + 1, y, c) * k5 +
-                    src_int(x - 1, y + 1, c) * k6 + src_int(x, y + 1, c) * k7 + src_int(x + 1, y + 1, c) * k8;
-
-        output(x, y, c) = clamp(expr / w);
-
-        input.dim(0).set_stride(3); // stride in dimension 0 (x) is three
+        input.dim(0)
+            .set_stride(3);         // stride in dimension 0 (x) is three
         input.dim(2).set_stride(1); // stride in dimension 2 (c) is one
 
         output.dim(0).set_stride(3); // stride in dimension 0 (x) is three
@@ -40,3 +35,21 @@ public:
 };
 
 HALIDE_REGISTER_GENERATOR(Filter, filter)
+
+// Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner"), tile_index("tile_index");
+
+// // Processamos parelelamente em blocos de 64x64
+// histogram_eq.tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
+//     .fuse(x_outer, y_outer, tile_index)
+//     .parallel(tile_index);
+
+// // Separamos cada bloco de 64 em blocos de 4x4
+// // Vetorizando o loop externo tamanho 4
+// // e realizando unroll no loop interno tamanho 4
+// Var x_inner_outer("x_inner_outer"), y_inner_outer("y_inner_outer"), x_vectors("x_vectorts"), y_pairs("y_pairs");
+// histogram_eq
+//     .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 4)
+//     .vectorize(x_vectors)
+//     .unroll(y_pairs);
+
+// histogram_eq.print_loop_nest();

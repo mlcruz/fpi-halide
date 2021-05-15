@@ -8,9 +8,14 @@
 using namespace cv;
 using namespace std;
 
-Halide::Runtime::Buffer<uchar> wrap_mat(Mat mat)
+Halide::Runtime::Buffer<uchar> wrap_interleaved(Mat mat)
 {
     return Halide::Runtime::Buffer<uchar>::make_interleaved(mat.data, mat.rows, mat.cols, 3);
+}
+
+Halide::Runtime::Buffer<uchar> wrap_output(Mat mat)
+{
+    return Halide::Runtime::Buffer<uchar>(mat.data, mat.rows, mat.cols, 3);
 }
 
 int main(int argc, char **argv)
@@ -46,27 +51,25 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    Mat frame;
-    cap >> frame;
-
-    Halide::Runtime::Buffer<uint8_t> interleaved_output =
-        Halide::Runtime::Buffer<uint8_t>::make_interleaved(frame.cols, frame.rows, 3);
+    Mat input;
+    Mat output;
+    cap >> input;
+    output = input;
 
     while (1)
     {
+        cap >> input;
+        auto in = wrap_interleaved(input);
+        auto out = wrap_interleaved(output);
 
-        Mat frame;
-        cap >> frame;
-        auto buf = wrap_mat(frame);
-
-        filter(buf, interleaved_output);
+        filter(in, out);
 
         // If the frame is empty, break immediately
-        if (frame.empty())
+        if (input.empty())
             break;
 
         // Display the resulting frame
-        imshow("Frame", frame);
+        imshow("Frame", output);
 
         // Press  ESC on keyboard to exit
         char c = (char)waitKey(25);
