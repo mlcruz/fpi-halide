@@ -19,11 +19,26 @@ public:
         Func filter_3x3("filter_3x3");
         Func src_int;
 
-        auto gray = to_grayscale(input, x, y);
         Func histogram("histogram");
+        Func grayscale("grayscale");
+        Func hist_cum("hist cum");
+
+        auto alpha = 255.0f / (input.width() * input.height() / 3);
+        grayscale(x, y, c) = to_grayscale(input, x, y);
         auto x_y_domain = RDom(0, input.width(), 0, input.height(), "x_y");
 
-        output(x, y, c) = gray;
+        histogram(h) = 0.0f;
+        histogram(grayscale(x_y_domain.x, x_y_domain.y, 0)) += 1.0f;
+
+        hist_cum(h) = alpha * histogram(h);
+
+        auto h_dom = RDom(1, 255, "h");
+
+        hist_cum(h_dom.x) =
+            hist_cum(h_dom.x - 1) +
+            ((alpha * histogram(h_dom.x)) / 3);
+
+        output(x, y, c) = clamp(hist_cum(input(x, y, c)));
 
         input.dim(0)
             .set_stride(3);         // stride in dimension 0 (x) is three

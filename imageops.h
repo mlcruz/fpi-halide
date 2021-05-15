@@ -113,24 +113,23 @@ Func histogram_equalization(Func src)
     auto alpha = 255.0f / (src.output_buffer().height() * src.output_buffer().width() / 3);
 
     Func histogram_fn = histogram(src);
-    // histogram_fn.compute_root();
+    histogram_fn.compute_root();
 
-    // Func hist_cum("hist cum");
+    Func hist_cum("hist cum");
 
-    // hist_cum(h) = alpha * histogram_fn(h);
+    hist_cum(h) = alpha * histogram_fn(h);
 
-    // auto h_dom = RDom(1, 255, "h");
+    auto h_dom = RDom(1, 255, "h");
 
-    // hist_cum(h_dom.x) =
-    //     hist_cum(h_dom.x - 1) +
-    //     ((alpha * histogram_fn(h_dom.x)) / 3);
+    hist_cum(h_dom.x) =
+        hist_cum(h_dom.x - 1) +
+        ((alpha * histogram_fn(h_dom.x)) / 3);
 
-    // hist_cum.compute_root();
+    hist_cum.compute_root();
 
-    // Func histogram_eq("histogram eq");
-    // histogram_eq(x, y, c) = clamp(hist_cum(src(x, y, c)));
-    // //return src;
-    return histogram_fn;
+    Func histogram_eq("histogram eq");
+    histogram_eq(x, y, c) = clamp(hist_cum(src(x, y, c)));
+    return histogram_eq;
 }
 
 Func filter_3x3(Buffer<u_int8_t> src)
