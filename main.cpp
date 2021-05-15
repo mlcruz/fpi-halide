@@ -1,16 +1,16 @@
-#include "Halide.h"
-#include "halide_image_io.h"
-#include "imageops.h"
+// #include "imageops.h"
 #include <opencv2/core.hpp>
 #include "opencv2/opencv.hpp"
+#include "filter.h"
 
-using namespace Halide;
+#include "HalideBuffer.h"
+
 using namespace cv;
 using namespace std;
 
-Buffer<uchar> wrap_mat(Mat mat)
+Halide::Runtime::Buffer<uchar> wrap_mat(Mat mat)
 {
-    return Buffer<uchar>::make_interleaved(mat.data, mat.rows, mat.cols, 3);
+    return Halide::Runtime::Buffer<uchar>::make_interleaved(mat.data, mat.rows, mat.cols, 3);
 }
 
 int main(int argc, char **argv)
@@ -46,12 +46,20 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    Mat frame;
+    cap >> frame;
+
+    Halide::Runtime::Buffer<uint8_t> interleaved_output =
+        Halide::Runtime::Buffer<uint8_t>::make_interleaved(frame.cols, frame.rows, 3);
+
     while (1)
     {
 
         Mat frame;
         cap >> frame;
         auto buf = wrap_mat(frame);
+
+        filter(buf, interleaved_output);
 
         // If the frame is empty, break immediately
         if (frame.empty())
