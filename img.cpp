@@ -32,10 +32,6 @@ int main(int argc, char **argv)
     grayscale(x, y, c) = to_grayscale(input, x, y);
 
     Var c_inner("c_inner"), c_outer("c_outer");
-    //    grayscale.reorder(c, y, x);
-    // grayscale.split(c, c_outer, c_inner, 3);
-    // grayscale.vectorize(c_inner);
-
     Var x_inner("x_inner"), x_outer("x_outer");
     Var y_inner("y_inner"), y_outer("y_outer");
     Var tile_index("tile_index");
@@ -45,11 +41,7 @@ int main(int argc, char **argv)
     grayscale.reorder(c, x_inner, y_inner, x_outer, y_outer);
     grayscale.fuse(y_outer, x_outer, tile_index);
     grayscale.parallel(tile_index);
-
-    // grayscale.unroll(c_inner);
     grayscale.print_loop_nest();
-    // Reordenamos os loops
-
     grayscale.realize(output);
     Halide::Tools::save_image(output, "gray.png");
 
