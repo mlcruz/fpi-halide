@@ -24,7 +24,11 @@ public:
         Func hist_cum("hist cum");
 
         auto alpha = 255.0f / (input.width() * input.height() / 3);
-        grayscale(x, y, c) = to_grayscale(input, x, y);
+        //grayscale(x, y, c) =
+
+        Expr to_gray = input(x, y, 0) * 0.114f + input(x, y, 1) * 0.587f + input(x, y, 2) * 0.299f;
+        to_gray = clamp(to_gray);
+        grayscale(x, y, c) = to_gray;
         grayscale.compute_root();
         auto x_y_domain = RDom(0, input.width(), 0, input.height(), "x_y");
 
@@ -64,8 +68,10 @@ public:
     {
         Func histogram("histogram");
 
-        output(x, y, c) = to_grayscale(input, x, y);
+        Expr to_gray = input(x, y, 0) * 0.114f + input(x, y, 1) * 0.587f + input(x, y, 2) * 0.299f;
+        to_gray = clamp(to_gray);
 
+        output(x, y, c) = to_gray;
         input.dim(0)
             .set_stride(3);         // stride in dimension 0 (x) is three
         input.dim(2).set_stride(1); // stride in dimension 2 (c) is one
