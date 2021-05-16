@@ -1,1 +1,10 @@
 lib
+equalize*
+filter*
+generate
+gray*
+hist
+img
+img_gray
+hist.png
+opencv
