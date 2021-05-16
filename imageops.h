@@ -71,29 +71,12 @@ Buffer<uint8_t> histogram_image(Func histogram, Buffer<u_int8_t> src)
     out_expr = cast<uint8_t>(out_expr);
     histogram_out(x, y, c) = out_expr;
 
-    //Var x_outer, x_inner, y_outer, y_inner, c_outer, c_inner;
-    // histogram_out.reorder(y, x, c)
-    // histogram_out.tile(x, y, x_outer, y_outer, x_inner, y_inner, 4, 4);
-    // histogram_out.vectorize(x, 4);
-    //histogram_out.unroll(x, 8);
-
-    //    Var x_outer, y_outer, x_inner, y_inner, tile_index;
-    // histogram_out.tile(x, y, x_outer, y_outer, x_inner, y_inner, 4, 4)
-    //     .fuse(x_outer, y_outer, tile_index)
-    //     .parallel(tile_index);
-
-    // We'll process 64x64 tiles in parallel.
     Var x_outer, y_outer, x_inner, y_inner, tile_index;
     histogram_out
         .tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
         .fuse(x_outer, y_outer, tile_index)
         .parallel(tile_index);
 
-    // We'll compute two scanlines at once while we walk across
-    // each tile. We'll also vectorize in x. The easiest way to
-    // express this is to recursively tile again within each tile
-    // into 4x2 subtiles, then vectorize the subtiles across x and
-    // unroll them across y:
     Var x_inner_outer, y_inner_outer, x_vectors, y_pairs;
     histogram_out
         .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 2)
@@ -146,7 +129,7 @@ Func histogram_equalization(Buffer<u_int8_t> src)
         .vectorize(x_vectors)
         .unroll(y_pairs);
 
-    histogram_eq.print_loop_nest();
+    //  histogram_eq.print_loop_nest();
 
     return histogram_eq;
 }
