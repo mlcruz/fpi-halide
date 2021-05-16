@@ -23,8 +23,7 @@ public:
         Func grayscale("grayscale");
         Func hist_cum("hist cum");
 
-        auto alpha = 255.0f / (input.width() * input.height() / 3);
-        //grayscale(x, y, c) =
+        auto alpha = 255.0f / (input.width() * input.height() / 3.0f);
 
         Expr to_gray = input(x, y, 0) * 0.114f + input(x, y, 1) * 0.587f + input(x, y, 2) * 0.299f;
         to_gray = clamp(to_gray);
@@ -46,6 +45,22 @@ public:
         hist_cum.compute_root();
         output(x, y, c) = clamp(hist_cum(input(x, y, c)));
 
+        Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner"), tile_index("tile_index");
+
+        // Processamos parelelamente em blocos de 64x64
+        output.tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
+            .fuse(x_outer, y_outer, tile_index)
+            .parallel(tile_index);
+
+        // Separamos cada bloco de 64 em blocos de 4x4
+        // Vetorizando o loop externo tamanho 4
+        // e realizando unroll no loop interno tamanho 4
+        Var x_inner_outer("x_inner_outer"), y_inner_outer("y_inner_outer"), x_vectors("x_vectorts"), y_pairs("y_pairs");
+        output
+            .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 4)
+            .vectorize(x_vectors)
+            .unroll(y_pairs);
+
         input.dim(0)
             .set_stride(3);         // stride in dimension 0 (x) is three
         input.dim(2).set_stride(1); // stride in dimension 2 (c) is one
@@ -66,8 +81,6 @@ public:
     // pipeline:
     void generate()
     {
-        Func histogram("histogram");
-
         Expr to_gray = input(x, y, 0) * 0.114f + input(x, y, 1) * 0.587f + input(x, y, 2) * 0.299f;
         to_gray = clamp(to_gray);
 
@@ -83,21 +96,5 @@ public:
 
 HALIDE_REGISTER_GENERATOR(Equalize, equalize)
 HALIDE_REGISTER_GENERATOR(Grayscale, grayscale)
-
-// Var x_outer("x_outer"), y_outer("y_outer"), x_inner("x_inner"), y_inner("y_inner"), tile_index("tile_index");
-
-// // Processamos parelelamente em blocos de 64x64
-// histogram_eq.tile(x, y, x_outer, y_outer, x_inner, y_inner, 64, 64)
-//     .fuse(x_outer, y_outer, tile_index)
-//     .parallel(tile_index);
-
-// // Separamos cada bloco de 64 em blocos de 4x4
-// // Vetorizando o loop externo tamanho 4
-// // e realizando unroll no loop interno tamanho 4
-// Var x_inner_outer("x_inner_outer"), y_inner_outer("y_inner_outer"), x_vectors("x_vectorts"), y_pairs("y_pairs");
-// histogram_eq
-//     .tile(x_inner, y_inner, x_inner_outer, y_inner_outer, x_vectors, y_pairs, 4, 4)
-//     .vectorize(x_vectors)
-//     .unroll(y_pairs);
 
 // histogram_eq.print_loop_nest();
